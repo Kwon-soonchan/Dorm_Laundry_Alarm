@@ -35,3 +35,9 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Arduino ###
+secrets.h
+
+### Summary ###
+project_summary.txt

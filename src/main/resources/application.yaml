@@ -1,0 +1,23 @@
+server:
+  port: 8081
+
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+mqtt:
+  broker-url: ${MQTT_BROKER_URL}
+  client-id: laundry-backend-server
+  topic: laundry/vibration/1
+
+discord:
+  webhook:
+    url: ${DISCORD_WEBHOOK_URL}
