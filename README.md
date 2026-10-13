@@ -1,38 +1,114 @@
-# 🧺 기숙사 세탁기 진동 감지 알리미 (Dorm Laundry Alarm)
+# Dorm Laundry Alarm
 
-공용 세탁기의 작동 완료 시점을 직관적으로 파악하기 위해, 하드웨어 센서로 진동을 감지하고 세탁이 끝났을 때 디스코드(Discord)로 푸시 알림을 보내주는 IoT 기반 토이 프로젝트입니다. 
+ESP8266과 SW-420 진동 센서로 세탁기의 동작 상태를 수집하고, MQTT와 Spring Boot를 거쳐 MySQL에 저장한 뒤 세탁 완료 후보를 Discord로 알리는 IoT 프로토타입입니다.
 
-## 🎯 Project Motivation
-- 기숙사 공용 세탁기가 언제 끝날지 몰라 여러 번 확인하러 가야 하는 번거로움을 해결합니다.
-- 하드웨어(센서 통신)부터 백엔드(데이터 처리 및 외부 API 연동)까지 데이터의 전체 흐름을 제어합니다.
+> 이 저장소는 기술 프로토타입입니다. 공용 세탁기에 대한 현장 부착 승인을 받지 못했으므로 기숙사 실기기 설치·검증은 진행하지 않았습니다. 시설물에는 관리 주체의 명시적인 허가 없이 센서나 전원 장치를 설치하지 않습니다.
 
-## 🛠 Tech Stack
+## 데이터 흐름
 
-### Hardware & IoT
-- **Board:** NodeMCU V3 (ESP8266)
-- **Sensor:** SW-420 (진동 센서 모듈)
-- **Protocol:** MQTT (Mosquitto Broker)
+```mermaid
+flowchart LR
+    A[SW-420] --> B[ESP8266 NodeMCU]
+    B -->|Wi-Fi / MQTT| C[Mosquitto]
+    C --> D[Spring Boot]
+    D --> E[(MySQL)]
+    D --> F[Discord Webhook]
+    D --> G[CSV Export]
+```
 
-### Backend
-- **Language:** Java 21
-- **Framework:** Spring Boot 3.x
-- **Database:** MySQL, Spring Data JPA
-- **Notification:** Discord Webhook API
+ESP8266은 두 종류의 메시지를 발행합니다.
 
-## 🏛 Architecture & Design Principles
+| MQTT 토픽 | 페이로드 | 용도 |
+| --- | --- | --- |
+| `laundry/vibration/1` | `0` 또는 `1` | 상태 변화 및 주기적 상태 보고 |
+| `laundry/telemetry/1` | `sample_count,vibration_count,window_ms` | 1초 단위 원시 집계 데이터 저장 |
 
-1. **관심사의 분리 (Separation of Concerns):** - 하드웨어 데이터 수신(MQTT), 비즈니스 로직(진동 분석 및 세탁 상태 판별), 알림 발송(Discord)의 역할을 철저히 분리하여, 향후 웹 프론트엔드 연동이나 다른 알림 매체로의 확장이 유연하도록 설계했습니다.
-2. **데이터 안정성:** - 데이터베이스의 모든 식별자(PK) 및 시간/수치 데이터는 Integer 오버플로우를 방지하기 위해 `Long`(`BIGINT`) 타입으로 설계하여 대용량 로그 적재 시의 안정성을 확보했습니다.
-3. **상태 관리 및 로깅:**
-   - 기기의 현재 상태를 관리하는 `MACHINE` 테이블과, 작동 이력을 시계열로 저장하는 `USAGE_LOG` 테이블을 분리하여 추후 통계 분석이 가능한 구조를 취합니다.
+## 구현 상태
 
-## 🚀 Features (MVP)
-- **진동 데이터 수집:** 세탁기에 부착된 SW-420 센서가 작동 상태를 감지하여 MQTT 브로커로 발행(Publish).
-- **상태 판별 알고리즘:** Spring Boot 서버에서 데이터를 구독(Subscribe)하고, 일정 시간 이상 진동이 감지되지 않을 경우 '세탁 완료' 상태로 전환.
-- **실시간 알림:** 세탁 완료 판별 즉시 Discord Webhook을 통해 지정된 채널로 완료 메세지 전송.
+- [x] ESP8266 Wi-Fi 및 MQTT 재연결
+- [x] SW-420 상태 발행
+- [x] 1초 단위 진동 텔레메트리 발행
+- [x] Spring Boot MQTT 구독
+- [x] MySQL 기기 상태 및 텔레메트리 저장
+- [x] 무진동 시간 기반 완료 후보 판정
+- [x] Discord 웹훅 알림
+- [x] 텔레메트리 CSV 내보내기
+- [ ] 실제 세탁 데이터 기반 임계값 보정
+- [ ] 중간 정지와 실제 종료를 구분하는 상태 머신
+- [ ] 허가된 환경에서의 장시간 실기기 검증
 
-## 📈 Roadmap
-- [x] Phase 1: 백엔드 초기 뼈대 구축 및 디스코드 웹훅 연동 테스트
-- [ ] Phase 2: NodeMCU & SW-420 하드웨어 회로 구성 및 MQTT 통신 구현
-- [ ] Phase 3: JPA 엔티티 구성 (Machine, UsageLog 등) 및 비즈니스 로직 완성
-- [ ] Phase 4: (Optional) 사용자 대시보드용 웹 프론트엔드 구축
+현재 로컬 프로필의 완료 임계값은 빠른 기능 시험을 위해 10초입니다. 운영 기본값은 180초이지만, 두 값 모두 실제 세탁 데이터로 보정하기 전의 임시값입니다.
+
+## 기술 구성
+
+- Hardware: ESP8266 NodeMCU, SW-420
+- Firmware: Arduino C++, ESP8266WiFi, PubSubClient
+- Messaging: Mosquitto MQTT
+- Backend: Java 21, Spring Boot, Spring Integration MQTT, Spring Data JPA
+- Database: MySQL 8
+- Notification: Discord Webhook
+
+## 저장소 구조
+
+```text
+.
+├─ firmware/
+│  ├─ laundry_sensor/       # Wi-Fi/MQTT 및 텔레메트리 펌웨어
+│  └─ sw420_serial_test/     # 센서 단독 시리얼 테스트
+├─ scripts/                 # 로컬 DB 초기화 및 서버 실행
+├─ src/main/                # Spring Boot 애플리케이션
+├─ docs/VALIDATION_PLAN.md  # 제한 사항과 후속 검증 계획
+└─ LOCAL_SETUP.md           # Windows 로컬 실행 절차
+```
+
+## 빠른 시작
+
+필수 프로그램은 Java 21, MySQL 8, Mosquitto입니다. Windows PowerShell 기준 전체 절차는 [LOCAL_SETUP.md](LOCAL_SETUP.md)에 정리되어 있습니다.
+
+```powershell
+# MySQL DB와 로컬 전용 계정 생성(최초 1회)
+Get-Content .\scripts\init-local-db.sql |
+  & 'C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe' -u root -p
+
+# 웹훅을 파일에 저장하지 않고 마스킹 입력하여 실행
+.\scripts\run-local.ps1 -PromptForWebhook
+```
+
+서버가 실행 중이면 아래 주소에서 저장된 텔레메트리를 CSV로 내려받을 수 있습니다.
+
+```text
+http://localhost:8081/api/telemetry/export.csv
+```
+
+## 펌웨어 설정
+
+1. `firmware/laundry_sensor/secrets.h.example`을 같은 폴더의 `secrets.h`로 복사합니다.
+2. Wi-Fi SSID, 비밀번호, MQTT 브로커 주소를 자신의 환경에 맞게 입력합니다.
+3. Arduino IDE에서 `laundry_sensor.ino`를 ESP8266 NodeMCU에 업로드합니다.
+
+`secrets.h`는 Git에서 제외됩니다. 실제 Wi-Fi 비밀번호, Discord 웹훅, 운영 DB 비밀번호를 저장소에 커밋하지 마세요.
+
+## 검증 범위와 한계
+
+로컬 환경에서 다음 흐름은 기능 검증했습니다.
+
+```text
+MQTT 발행 → Mosquitto → Spring Boot → MySQL → CSV/Discord
+```
+
+기숙사 공용 세탁기는 관리업체가 외판 센서 부착을 허가하지 않아 현장 데이터를 수집하지 않았습니다. 따라서 현재 완료 판정은 실제 제품에 적용 가능한 정확도를 주장하지 않습니다. 허가된 개인 세탁기 또는 소형 진동 실험 장치에서 정상 동작, 중간 정지, 짧은 충격, 통신 끊김을 재현한 뒤 상태 머신과 임계값을 보정해야 합니다. 구체적인 시나리오는 [검증 계획](docs/VALIDATION_PLAN.md)을 참고하세요.
+
+## 안전 원칙
+
+- 관리 주체의 허가 없이 공용 설비에 장치를 부착하지 않습니다.
+- 세탁기 분해, 전기함 접근, 콘센트 변경을 하지 않습니다.
+- 센서 외 장치와 전원은 물기가 없는 독립된 위치에 둡니다.
+- 시설물 훼손 가능성이 있는 접착제나 고정 방식을 사용하지 않습니다.
+
+## 향후 개선
+
+1. 허가된 환경에서 한 사이클 이상의 실제 데이터 수집
+2. CSV 데이터를 MQTT로 재생하는 테스트 도구 추가
+3. `IDLE → RUNNING → POSSIBLY_FINISHED → FINISHED` 상태 머신 적용
+4. MQTT 연결 단절과 실제 무진동 상태 분리
+5. 동일 데이터셋에 대한 오탐·미탐·알림 지연 평가

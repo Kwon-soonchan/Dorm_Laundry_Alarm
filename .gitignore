@@ -1,5 +1,6 @@
 HELP.md
 .gradle
+.gradle-user/
 build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
@@ -41,3 +42,8 @@ secrets.h
 
 ### Summary ###
 project_summary.txt
+
+### Local environment ###
+.env
+.env.*
+!.env.example

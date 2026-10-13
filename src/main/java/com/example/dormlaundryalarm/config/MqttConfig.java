@@ -1,6 +1,7 @@
 package com.example.dormlaundryalarm.config;
 
 import com.example.dormlaundryalarm.service.WashingMachineService;
+import com.example.dormlaundryalarm.service.VibrationTelemetryService;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -28,6 +29,9 @@ public class MqttConfig {
     @Value("${mqtt.topic}")
     private String topic;
 
+    @Value("${mqtt.telemetry-topic}")
+    private String telemetryTopic;
+
     @Bean
     public MqttPahoClientFactory mqttClientFactory() {
         DefaultMqttPahoClientFactory factory = new DefaultMqttPahoClientFactory();
@@ -45,7 +49,8 @@ public class MqttConfig {
     @Bean
     public MessageProducer inbound() {
         MqttPahoMessageDrivenChannelAdapter adapter =
-                new MqttPahoMessageDrivenChannelAdapter(clientId, mqttClientFactory(), topic);
+                new MqttPahoMessageDrivenChannelAdapter(
+                        clientId, mqttClientFactory(), topic, telemetryTopic);
         adapter.setCompletionTimeout(5000);
         adapter.setConverter(new DefaultPahoMessageConverter());
         adapter.setQos(1);
@@ -55,13 +60,18 @@ public class MqttConfig {
 
     @Bean
     @ServiceActivator(inputChannel = "mqttInputChannel")
-    public MessageHandler handler(WashingMachineService washingMachineService) {
+    public MessageHandler handler(
+            WashingMachineService washingMachineService,
+            VibrationTelemetryService vibrationTelemetryService) {
         return message -> {
             String receivedTopic = (String) message.getHeaders().get(MqttHeaders.RECEIVED_TOPIC);
             String payload = (String) message.getPayload();
 
-            // 수신된 데이터를 비즈니스 로직으로 전달
-            washingMachineService.processVibration(receivedTopic, payload);
+            if (receivedTopic != null && receivedTopic.contains("/telemetry/")) {
+                vibrationTelemetryService.record(receivedTopic, payload);
+            } else {
+                washingMachineService.processVibration(receivedTopic, payload);
+            }
         };
     }
 }

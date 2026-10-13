@@ -1,0 +1,16 @@
+spring:
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/dorm_laundry?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
+    username: laundry_app
+    password: laundry_local_dev
+
+mqtt:
+  broker-url: tcp://127.0.0.1:1883
+
+discord:
+  webhook:
+    # Set DISCORD_WEBHOOK_URL in the process environment. Never commit the URL.
+    url: ${DISCORD_WEBHOOK_URL:}
+
+laundry:
+  completion-threshold-seconds: 10

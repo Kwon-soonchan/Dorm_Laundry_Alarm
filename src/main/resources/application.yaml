@@ -17,6 +17,7 @@ mqtt:
   broker-url: ${MQTT_BROKER_URL}
   client-id: laundry-backend-server
   topic: laundry/vibration/1
+  telemetry-topic: laundry/telemetry/1
 
 discord:
   webhook:

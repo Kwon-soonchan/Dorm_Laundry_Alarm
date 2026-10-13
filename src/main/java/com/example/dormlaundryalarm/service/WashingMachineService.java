@@ -4,6 +4,7 @@ package com.example.dormlaundryalarm.service;
 import com.example.dormlaundryalarm.domain.Machine;
 import com.example.dormlaundryalarm.repository.MachineRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,8 +23,8 @@ public class WashingMachineService {
     // 기기별 '마지막 진동 감지 시간'을 메모리에 기록하는 장부
     private final Map<Long, LocalDateTime> lastVibrationMap = new ConcurrentHashMap<>();
 
-    // 💡 테스트를 위해 일단 10초로 설정했습니다. (기숙사 실전 배치 때는 180초(3분) 정도로 늘리세요!)
-    private static final int COMPLETION_THRESHOLD_SECONDS = 180;
+    @Value("${laundry.completion-threshold-seconds:180}")
+    private long completionThresholdSeconds;
 
     @Transactional
     public void processVibration(String topic, String payload) {
@@ -53,17 +54,17 @@ public class WashingMachineService {
             // 마지막 진동으로부터 몇 초나 지났는지 계산
             long secondsSinceLastVibration = ChronoUnit.SECONDS.between(lastVibration, now);
 
-            // 🎯 무진동 상태가 설정한 시간(10초)을 돌파했다면? -> 찐 완료!
-            if (secondsSinceLastVibration >= COMPLETION_THRESHOLD_SECONDS) {
+            // 무진동 상태가 설정한 임계값을 넘으면 완료 후보로 판정한다.
+            if (secondsSinceLastVibration >= completionThresholdSeconds) {
                 machine.updateStatus("AVAILABLE");
-                System.out.println("✅ " + machineId + "번 세탁기 작동 완료 확정! (무진동 " + COMPLETION_THRESHOLD_SECONDS + "초 유지)");
+                System.out.println("✅ " + machineId + "번 세탁기 작동 완료 확정! (무진동 " + completionThresholdSeconds + "초 유지)");
 
                 notificationService.sendLaundryCompleteNotification(machineId);
 
                 // 알림을 보냈으니 장부에서 기록 삭제
                 lastVibrationMap.remove(machineId);
             }
-            // 10초가 안 지났다면 헹굼/탈수 대기 중인 일시 정지 구간으로 간주하고 아무것도 안 함 (무시)
+            // 임계값 이내의 무진동은 헹굼/탈수 대기 중인 일시 정지 구간으로 간주한다.
         }
     }
 }
