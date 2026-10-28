@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.nio.charset.StandardCharsets;
 
@@ -20,11 +21,12 @@ public class TelemetryExportController {
     private final VibrationTelemetryRepository repository;
 
     @GetMapping(value = "/export.csv", produces = "text/csv")
-    public ResponseEntity<byte[]> exportCsv() {
+    public ResponseEntity<byte[]> exportCsv(@RequestParam(required = false) Long machineId) {
         StringBuilder csv = new StringBuilder(
                 "id,machine_id,recorded_at,window_ms,sample_count,vibration_count,vibration_ratio\n");
 
-        for (VibrationTelemetry row : repository.findAllByOrderByRecordedAtAsc()) {
+        for (VibrationTelemetry row : machineId == null ? repository.findAllByOrderByRecordedAtAsc()
+                : repository.findByMachineIdOrderByRecordedAtAsc(machineId)) {
             csv.append(row.getId()).append(',')
                     .append(row.getMachineId()).append(',')
                     .append(row.getRecordedAt()).append(',')

@@ -33,6 +33,9 @@ ESP8266은 두 종류의 메시지를 발행합니다.
 - [x] 무진동 시간 기반 완료 후보 판정
 - [x] Discord 웹훅 알림
 - [x] 텔레메트리 CSV 내보내기
+- [x] PC·휴대폰 반응형 대시보드 및 데모 모드
+- [x] 실험별 시작·본세탁·헹굼·탈수·실제 종료 시각과 메모 저장
+- [x] 실험 구간 진동 CSV 및 관찰 기록 CSV 내보내기
 - [ ] 실제 세탁 데이터 기반 임계값 보정
 - [ ] 중간 정지와 실제 종료를 구분하는 상태 머신
 - [ ] 허가된 환경에서의 장시간 실기기 검증
@@ -63,6 +66,8 @@ ESP8266은 두 종류의 메시지를 발행합니다.
 
 ## 빠른 시작
 
+화면을 먼저 살펴보려면 [온라인 데모](https://dorm-laundry-lab.clover9593.chatgpt.site)를 열면 됩니다(소유자 비공개). 데모는 예시 데이터를 표시하며 기록은 브라우저에만 보관합니다. 실제 센서와 연결할 때는 아래 로컬 서버를 사용합니다.
+
 필수 프로그램은 Java 21, MySQL 8, Mosquitto입니다. Windows PowerShell 기준 전체 절차는 [LOCAL_SETUP.md](LOCAL_SETUP.md)에 정리되어 있습니다.
 
 ```powershell
@@ -73,6 +78,8 @@ Get-Content .\scripts\init-local-db.sql |
 # 웹훅을 파일에 저장하지 않고 마스킹 입력하여 실행
 .\scripts\run-local.ps1 -PromptForWebhook
 ```
+
+실행 후 [로컬 대시보드](http://localhost:8081)를 엽니다. 같은 네트워크의 휴대폰에서는 `http://PC의-IP주소:8081`로 접속합니다. 사용 방법과 API는 [대시보드 안내](docs/DASHBOARD.md)를 참고하세요.
 
 서버가 실행 중이면 아래 주소에서 저장된 텔레메트리를 CSV로 내려받을 수 있습니다.
 
