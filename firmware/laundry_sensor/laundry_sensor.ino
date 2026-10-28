@@ -23,6 +23,7 @@ const unsigned long WIFI_RETRY_INTERVAL_MS = 5000;
 const unsigned long MQTT_RETRY_INTERVAL_MS = 5000;
 const unsigned long SENSOR_SAMPLE_INTERVAL_MS = 10;
 const unsigned long TELEMETRY_WINDOW_MS = 1000;
+const char* STATUS_TOPIC = "laundry/status/1";
 
 void setupWifi() {
   WiFi.mode(WIFI_STA);
@@ -39,9 +40,15 @@ void reconnectMqtt() {
   Serial.print(mqttServer);
   Serial.print(":1883 ... ");
 
-  if (client.connect(clientId.c_str())) {
+  if (client.connect(clientId.c_str(), STATUS_TOPIC, 1, true, "offline")) {
     Serial.println("connected");
-    client.publish("laundry/status", "connected", true);
+    client.publish(STATUS_TOPIC, "online", true);
+    // Disconnected time is not a measured telemetry window. Never backfill it as silence.
+    telemetrySampleCount = 0;
+    telemetryVibrationCount = 0;
+    telemetryWindowStartTime = millis();
+    lastSensorSampleTime = millis();
+    lastState = -1;
   } else {
     Serial.print("failed, state=");
     Serial.println(client.state());
@@ -56,6 +63,8 @@ void setup() {
   Serial.println("Laundry sensor starting");
   setupWifi();
   client.setServer(mqttServer, 1883);
+  client.setKeepAlive(10);
+  client.setSocketTimeout(5);
   telemetryWindowStartTime = millis();
 }
 
@@ -98,7 +107,10 @@ void loop() {
     lastMessageTime = now;
 
     String payload = String(currentState);
-    client.publish("laundry/vibration/1", payload.c_str());
+    if (!client.publish("laundry/vibration/1", payload.c_str())) {
+      espClient.stop();
+      return;
+    }
 
     Serial.print("Vibration state: ");
     Serial.println(payload);
@@ -116,7 +128,10 @@ void loop() {
       actualWindowMs
     );
 
-    client.publish("laundry/telemetry/1", telemetryPayload);
+    if (!client.publish("laundry/telemetry/1", telemetryPayload)) {
+      espClient.stop();
+      return;
+    }
 
     Serial.print("Telemetry samples,hits,windowMs: ");
     Serial.println(telemetryPayload);

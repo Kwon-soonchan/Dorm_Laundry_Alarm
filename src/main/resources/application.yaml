@@ -18,7 +18,19 @@ mqtt:
   client-id: laundry-backend-server
   topic: laundry/vibration/1
   telemetry-topic: laundry/telemetry/1
+  status-topic: laundry/status/+
 
 discord:
   webhook:
-    url: ${DISCORD_WEBHOOK_URL}
+    url: ${DISCORD_WEBHOOK_URL:}
+
+laundry:
+  completion-threshold-seconds: 180
+  status-gap-seconds: 15
+
+notification:
+  poll-ms: 2000
+  retry-base-seconds: 5
+  retry-max-seconds: 300
+  max-attempts: 8
+  lease-seconds: 60

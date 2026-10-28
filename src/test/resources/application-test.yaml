@@ -12,3 +12,6 @@ mqtt:
 discord:
   webhook:
     url: ""
+reliability:
+  scheduling:
+    enabled: false

@@ -38,4 +38,5 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+    systemProperty 'laundry.mqtt.smoke', System.getProperty('laundry.mqtt.smoke', 'false')
 }

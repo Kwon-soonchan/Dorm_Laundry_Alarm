@@ -33,6 +33,8 @@
 
 실시간 기록은 MySQL의 `experiment`, `experiment_event`에 저장됩니다. 서버 재시작이나 다른 휴대폰 접속 후에도 유지됩니다. 진동 데이터는 기존 `vibration_telemetry`를 사용합니다.
 
+기기 동작 상태는 `machine_monitor`에서 복구하며, 장치가 offline을 알리거나 브로커 연결이 끊기면 수신 시각이 최근이어도 연결 확인 필요로 표시합니다. 알림 발송 상태는 `/api/notifications?machineId=1`에서 확인할 수 있습니다. [장애 복구 안내](RELIABILITY.md)에 자세한 절차가 있습니다.
+
 데모 기록은 이 브라우저의 localStorage에만 저장하며 실제 DB·Discord에 접근하지 않습니다. 데모 CSV에는 `DEMO` 출처를 포함합니다. 데모 진동은 현재 페이지에서 생성한 최근 1시간만 유지하므로 과거 데모 실험의 진동 CSV는 비어 있을 수 있습니다.
 
 ## API

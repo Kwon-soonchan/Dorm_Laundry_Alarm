@@ -9,6 +9,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 import java.time.*;
 import java.util.*;
+import org.springframework.beans.factory.annotation.Value;
 
 @RestController
 @RequestMapping("/api/dashboard")
@@ -16,6 +17,9 @@ import java.util.*;
 public class DashboardController {
     private final VibrationTelemetryRepository telemetry;
     private final MachineRepository machines;
+    private final MachineMonitorRepository monitors;
+    private final Clock clock;
+    @Value("${laundry.status-gap-seconds:15}") private long statusGapSeconds;
 
     public record Point(Long id, Instant recordedAt, Long sampleCount, Long vibrationCount,
                         Long windowMs, Double vibrationRatio) {}
@@ -27,12 +31,16 @@ public class DashboardController {
                              @RequestParam(defaultValue = "15") int minutes) {
         if (machineId < 1 || minutes < 1 || minutes > 60)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "기기 번호 또는 시간 범위가 잘못되었습니다.");
-        Instant now = Instant.now();
+        Instant now = clock.instant();
         ZoneId zone = ZoneId.systemDefault();
         VibrationTelemetry latest = telemetry.findFirstByMachineIdOrderByRecordedAtDesc(machineId).orElse(null);
         Instant last = latest == null ? null : latest.getRecordedAt().atZone(zone).toInstant();
         String connection = last == null ? "WAITING" :
-                Duration.between(last, now).getSeconds() > 15 ? "STALE" : "LIVE";
+                now.isAfter(last.plusSeconds(statusGapSeconds)) ? "STALE" : "LIVE";
+        var monitor = monitors.findById(machineId).orElse(null);
+        if (monitor != null && (monitor.isFreshWindowRequired()
+                || monitor.getLastMessageAt() == null
+                || now.isAfter(monitor.getLastMessageAt().plusSeconds(statusGapSeconds)))) connection = "STALE";
         List<VibrationTelemetry> rows = telemetry.findByMachineIdAndRecordedAtBetweenOrderByRecordedAtDesc(
                 machineId, LocalDateTime.ofInstant(now.minusSeconds(minutes * 60L), zone),
                 LocalDateTime.ofInstant(now, zone), PageRequest.of(0, 5000));
@@ -42,7 +50,8 @@ public class DashboardController {
             points.add(new Point(row.getId(), row.getRecordedAt().atZone(zone).toInstant(),
                     row.getSampleCount(), row.getVibrationCount(), row.getWindowMs(), row.getVibrationRatio()));
         }
-        return new Snapshot(now, connection, machines.findById(machineId).map(m -> m.getStatus()).orElse("UNKNOWN"),
+        return new Snapshot(now, connection, monitor == null ?
+                machines.findById(machineId).map(m -> m.getStatus()).orElse("UNKNOWN") : monitor.getStatus(),
                 last, telemetry.countByMachineId(machineId), points);
     }
 }
